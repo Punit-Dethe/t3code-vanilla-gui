@@ -4,7 +4,7 @@ T3 Code is an "agent harness control surface". It enables control of the agents 
 
 Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, and OpenCode. If they're set up on your computer, T3 Code can control them.
 
-## 🚨 About this fork (`t3code-vanilla-gui`)
+## About this fork (`t3code-vanilla-gui`)
 
 > [!IMPORTANT]
 > **THIS FORK IS A VANILLA CLI GUI MODE FOR T3 CODE.**
