@@ -28,6 +28,7 @@ import { makeDrainableWorker } from "@t3tools/shared/DrainableWorker";
 import { resolveThreadWorkspaceCwd } from "../../checkpointing/Utils.ts";
 import { increment, orchestrationEventsProcessedTotal } from "../../observability/Metrics.ts";
 import { ProviderAdapterRequestError } from "../../provider/Errors.ts";
+import { shouldRunFirstTurnAuxiliaryAi } from "../../provider/VanillaCodexPolicy.ts";
 import type { ProviderServiceError } from "../../provider/Errors.ts";
 import { TextGeneration } from "../../textGeneration/TextGeneration.ts";
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
@@ -805,7 +806,30 @@ const make = Effect.gen(function* () {
 
     const isFirstUserMessageTurn =
       thread.messages.filter((entry) => entry.role === "user").length === 1;
+
+    // Vanilla fork: first-turn title/branch generation forks extra model calls.
+    // Skip them for Codex threads (resolved by driver kind, not instance id).
+    let runFirstTurnAuxiliaryAi = true;
     if (isFirstUserMessageTurn) {
+      const effectiveModelSelection = event.payload.modelSelection ?? thread.modelSelection;
+      const providerInfo = yield* providerService
+        .getInstanceInfo(effectiveModelSelection.instanceId)
+        .pipe(
+          Effect.mapError(
+            () =>
+              new ProviderAdapterRequestError({
+                provider: providerErrorLabelFromInstanceHint({
+                  instanceId: String(effectiveModelSelection.instanceId),
+                }),
+                method: "thread.turn.start",
+                detail: `Requested provider instance '${effectiveModelSelection.instanceId}' is not configured in this build.`,
+              }),
+          ),
+        );
+      runFirstTurnAuxiliaryAi = shouldRunFirstTurnAuxiliaryAi(providerInfo.driverKind);
+    }
+
+    if (isFirstUserMessageTurn && runFirstTurnAuxiliaryAi) {
       const project = yield* resolveProject(thread.projectId);
       const generationCwd =
         resolveThreadWorkspaceCwd({

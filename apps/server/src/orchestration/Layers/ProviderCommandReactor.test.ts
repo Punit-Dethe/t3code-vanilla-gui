@@ -383,6 +383,7 @@ describe("ProviderCommandReactor", () => {
       Layer.provideMerge(NodeServices.layer),
     );
     runtime = ManagedRuntime.make(layer);
+    const managedRuntime = runtime;
 
     const engine = await runtime.runPromise(Effect.service(OrchestrationEngineService));
     const snapshotQuery = await runtime.runPromise(Effect.service(ProjectionSnapshotQuery));
@@ -420,6 +421,8 @@ describe("ProviderCommandReactor", () => {
 
     return {
       engine,
+      dispatch: (event: Parameters<typeof engine.dispatch>[0]) =>
+        managedRuntime.runPromise(engine.dispatch(event)),
       readModel: () => Effect.runPromise(snapshotQuery.getSnapshot()),
       startSession,
       sendTurn,
@@ -587,8 +590,52 @@ describe("ProviderCommandReactor", () => {
     }),
   );
 
-  it("generates a thread title on the first turn", async () => {
+  it("skips first-turn title and branch generation for codex threads (vanilla policy)", async () => {
     const harness = await createHarness();
+    const now = "2026-01-01T00:00:00.000Z";
+    const seededTitle = "Please investigate reconnect failures after restar...";
+    harness.generateThreadTitle.mockReturnValue(Effect.succeed({ title: "Generated title" }));
+    harness.generateBranchName.mockReturnValue(Effect.succeed({ branch: "generated-branch" }));
+
+    await harness.dispatch({
+      type: "thread.meta.update",
+      commandId: CommandId.make("cmd-thread-seed-codex"),
+      threadId: ThreadId.make("thread-1"),
+      title: seededTitle,
+      branch: "t3code/1234abcd",
+      worktreePath: "/tmp/provider-project-worktree",
+    });
+
+    await harness.dispatch({
+      type: "thread.turn.start",
+      commandId: CommandId.make("cmd-turn-start-codex-vanilla"),
+      threadId: ThreadId.make("thread-1"),
+      message: {
+        messageId: asMessageId("user-message-codex-vanilla"),
+        role: "user",
+        text: "Please investigate reconnect failures after restarting the session.",
+        attachments: [],
+      },
+      titleSeed: seededTitle,
+      interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+      runtimeMode: "approval-required",
+      createdAt: now,
+    });
+
+    // The primary turn proceeds while no auxiliary AI calls are started.
+    await waitFor(() => harness.sendTurn.mock.calls.length === 1);
+    await harness.drain();
+    expect(harness.generateThreadTitle).not.toHaveBeenCalled();
+    expect(harness.generateBranchName).not.toHaveBeenCalled();
+  });
+
+  it("generates a thread title on the first turn", async () => {
+    const harness = await createHarness({
+      threadModelSelection: {
+        instanceId: ProviderInstanceId.make("claude"),
+        model: "claude-sonnet-5",
+      },
+    });
     const now = "2026-01-01T00:00:00.000Z";
     const seededTitle = "Please investigate reconnect failures after restar...";
     harness.generateThreadTitle.mockReturnValue(Effect.succeed({ title: "Generated title" }));
@@ -678,7 +725,12 @@ describe("ProviderCommandReactor", () => {
   });
 
   it("matches the client-seeded title even when the outgoing prompt is reformatted", async () => {
-    const harness = await createHarness();
+    const harness = await createHarness({
+      threadModelSelection: {
+        instanceId: ProviderInstanceId.make("claude"),
+        model: "claude-sonnet-5",
+      },
+    });
     const now = "2026-01-01T00:00:00.000Z";
     const seededTitle = "Fix reconnect spinner on resume";
     harness.generateThreadTitle.mockReturnValue(
@@ -729,7 +781,12 @@ describe("ProviderCommandReactor", () => {
   });
 
   it("generates a worktree branch name for the first turn", async () => {
-    const harness = await createHarness();
+    const harness = await createHarness({
+      threadModelSelection: {
+        instanceId: ProviderInstanceId.make("claude"),
+        model: "claude-sonnet-5",
+      },
+    });
     const now = "2026-01-01T00:00:00.000Z";
 
     await Effect.runPromise(
