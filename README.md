@@ -7,7 +7,7 @@ Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, and Ope
 ## About this fork (`t3code-vanilla-gui`)
 
 > [!IMPORTANT]
-> **THIS FORK IS A VANILLA CLI GUI MODE FOR T3 CODE.**
+> **THIS FORK IS A VANILLA MODE FOR T3 CODE.**
 >
 > T3 Code normally adds extra app-specific behavior on top of provider CLIs (for example its own MCP-style tools, plan-mode/system-instruction layers, browser-control flows, and related orchestration).
 >
