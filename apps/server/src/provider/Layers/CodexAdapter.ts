@@ -40,6 +40,7 @@ import * as EffectCodexSchema from "effect-codex-app-server/schema";
 import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import { getCodexServiceTierOptionValue } from "../../codexModelOptions.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
+import { VANILLA_CODEX } from "../VanillaCodexPolicy.ts";
 
 import {
   ProviderAdapterRequestError,
@@ -1394,7 +1395,12 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
           input.modelSelection?.instanceId === boundInstanceId
             ? getCodexServiceTierOptionValue(input.modelSelection)
             : undefined;
-        const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+        // Vanilla fork: never auto-inject the T3 preview MCP server into Codex.
+        // User-configured native Codex MCP servers are untouched.
+        const mcpSession =
+          VANILLA_CODEX.enabled && !VANILLA_CODEX.injectT3PreviewMcp
+            ? undefined
+            : McpProviderSession.readMcpProviderSession(input.threadId);
         const runtimeInput: CodexSessionRuntimeOptions = {
           threadId: input.threadId,
           providerInstanceId: boundInstanceId,

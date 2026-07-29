@@ -1,5 +1,10 @@
 import type { ProviderInteractionMode } from "@t3tools/contracts";
 
+// Vanilla fork: this module is dormant. The vanilla Codex policy never calls
+// `buildCodexDeveloperInstructions`; native Codex Default/Plan instructions
+// are requested via `developer_instructions: null` instead. Kept to minimize
+// upstream rebase conflicts (see `VanillaCodexPolicy.ts`).
+
 const T3_CODE_BROWSER_TOOL_INSTRUCTIONS = `
 
 ## T3 Code collaborative browser

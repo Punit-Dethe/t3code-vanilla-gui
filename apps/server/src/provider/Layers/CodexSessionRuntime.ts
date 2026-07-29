@@ -39,6 +39,7 @@ import { buildCodexInitializeParams } from "./CodexProvider.ts";
 import { codexSessionAppServerArgs } from "./codexLaunchArgs.ts";
 import { expandHomePath } from "../../pathExpansion.ts";
 import { buildCodexDeveloperInstructions } from "../CodexDeveloperInstructions.ts";
+import { VANILLA_CODEX } from "../VanillaCodexPolicy.ts";
 const decodeV2TurnStartResponse = Schema.decodeUnknownEffect(EffectCodexSchema.V2TurnStartResponse);
 
 const PROVIDER = ProviderDriverKind.make("codex");
@@ -343,6 +344,26 @@ function buildCodexCollaborationMode(input: {
   if (input.interactionMode === undefined) {
     return undefined;
   }
+
+  // Vanilla fork: request Codex's native Default/Plan instructions through the
+  // app-server protocol. `developer_instructions: null` means "use the
+  // built-in instructions for the selected collaboration mode"; this fork must
+  // never call `buildCodexDeveloperInstructions` for Codex turns. No T3
+  // fallback reasoning effort is inserted (`null` = no override). The wire
+  // protocol requires `settings.model`, so the explicitly user-selected model
+  // is echoed when present and Codex's advertised default model otherwise;
+  // this mirrors the model the native session would run.
+  if (VANILLA_CODEX.enabled && !VANILLA_CODEX.useT3DeveloperInstructions) {
+    return {
+      mode: input.interactionMode,
+      settings: {
+        model: normalizeCodexModelSlug(input.model) ?? DEFAULT_MODEL,
+        reasoning_effort: input.effort ?? null,
+        developer_instructions: null,
+      },
+    };
+  }
+
   const model = normalizeCodexModelSlug(input.model) ?? DEFAULT_MODEL;
   const reasoningEffort = input.effort ?? "medium";
   return {

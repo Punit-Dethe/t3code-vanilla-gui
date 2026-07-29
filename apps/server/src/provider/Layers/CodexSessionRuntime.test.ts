@@ -121,10 +121,7 @@ describe("buildTurnStartParams", () => {
         settings: {
           model: "gpt-5.3-codex",
           reasoning_effort: "medium",
-          developer_instructions: buildCodexDeveloperInstructions("plan", {
-            model: "gpt-5.3-codex",
-            reasoningEffort: "medium",
-          }),
+          developer_instructions: null,
         },
       },
     });
@@ -169,31 +166,93 @@ describe("buildTurnStartParams", () => {
         mode: "default",
         settings: {
           model: "gpt-5.3-codex",
-          reasoning_effort: "medium",
-          developer_instructions: buildCodexDeveloperInstructions("default", {
-            model: "gpt-5.3-codex",
-            reasoningEffort: "medium",
-          }),
+          reasoning_effort: null,
+          developer_instructions: null,
         },
       },
     });
   });
 
-  it("reports the same fallback model and effort in settings and instructions", () => {
-    const params = Effect.runSync(
-      buildTurnStartParams({
+  it.effect("uses native instructions with the default model and no forced effort", () =>
+    Effect.gen(function* () {
+      const params = yield* buildTurnStartParams({
         threadId: "provider-thread-1",
         runtimeMode: "full-access",
         prompt: "Go",
         interactionMode: "default",
-      }),
-    );
+      });
 
-    const settings = params.collaborationMode?.settings;
-    NodeAssert.equal(settings?.model, DEFAULT_MODEL);
-    NodeAssert.equal(settings?.reasoning_effort, "medium");
-    NodeAssert.ok(settings?.developer_instructions?.includes(`as ${DEFAULT_MODEL} with medium`));
-  });
+      NodeAssert.deepStrictEqual(params.collaborationMode, {
+        mode: "default",
+        settings: {
+          model: DEFAULT_MODEL,
+          reasoning_effort: null,
+          developer_instructions: null,
+        },
+      });
+    }),
+  );
+
+  it.effect("requests native plan instructions through the app-server protocol", () =>
+    Effect.gen(function* () {
+      const params = yield* buildTurnStartParams({
+        threadId: "provider-thread-1",
+        runtimeMode: "full-access",
+        prompt: "Go",
+        interactionMode: "plan",
+      });
+
+      NodeAssert.deepStrictEqual(params.collaborationMode, {
+        mode: "plan",
+        settings: {
+          model: DEFAULT_MODEL,
+          reasoning_effort: null,
+          developer_instructions: null,
+        },
+      });
+    }),
+  );
+
+  it.effect("never emits T3 augmentations in outbound turn payloads", () =>
+    Effect.gen(function* () {
+      for (const interactionMode of ["default", "plan"] as const) {
+        const params = yield* buildTurnStartParams({
+          threadId: "provider-thread-1",
+          runtimeMode: "full-access",
+          prompt: "Go",
+          model: "gpt-5.3-codex",
+          effort: "high",
+          interactionMode,
+        });
+
+        const outboundStrings: Array<string> = [];
+        const collectStrings = (value: unknown): void => {
+          if (typeof value === "string") {
+            outboundStrings.push(value);
+          } else if (Array.isArray(value)) {
+            value.forEach(collectStrings);
+          } else if (value !== null && typeof value === "object") {
+            Object.values(value).forEach(collectStrings);
+          }
+        };
+        collectStrings(params);
+        for (const value of outboundStrings) {
+          NodeAssert.doesNotMatch(value, /mcp_servers\.t3-code/);
+          NodeAssert.doesNotMatch(value, /T3_MCP_BEARER_TOKEN/);
+          NodeAssert.doesNotMatch(value, /T3 Code/);
+          NodeAssert.doesNotMatch(value, /preview_/);
+        }
+
+        const settings = params.collaborationMode?.settings;
+        NodeAssert.equal(settings?.developer_instructions, null);
+        // Explicit user selections still reach the top-level turn parameters.
+        NodeAssert.equal(params.model, "gpt-5.3-codex");
+        NodeAssert.equal(params.effort, "high");
+        NodeAssert.equal(settings?.model, "gpt-5.3-codex");
+        NodeAssert.equal(settings?.reasoning_effort, "high");
+      }
+    }),
+  );
 
   it.effect("routes approvals to the auto reviewer in auto mode", () =>
     Effect.gen(function* () {
