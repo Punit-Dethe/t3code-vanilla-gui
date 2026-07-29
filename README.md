@@ -4,6 +4,14 @@ T3 Code is an "agent harness control surface". It enables control of the agents 
 
 Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, and OpenCode. If they're set up on your computer, T3 Code can control them.
 
+## About this fork (`t3code-vanilla-gui`)
+
+This repository keeps the original T3 Code codebase, but strips out connection-heavy integrations so you can use a more vanilla setup.
+
+The goal of this fork is to provide a lightweight GUI over the provider CLIs (Codex, Claude Code, and OpenCode) so you can observe their native token consumption and expected behavior with less extra orchestration in the middle.
+
+The original README content is intentionally kept and this section documents what was changed for this fork.
+
 ## "Wait, what are you selling me?"
 
 Nothing. We built T3 Code because we wanted the best possible development experience with agents. We were inspired by existing solutions like the Codex desktop app, Conductor, Claude Desktop and Cursor Glass, but none met our bar.
