@@ -452,10 +452,9 @@ describe("isRecoverableThreadResumeError", () => {
 });
 
 describe("openCodexThread", () => {
-  it.effect("falls back to thread/start when resume fails recoverably", () =>
+  it.effect("fails closed when resume fails recoverably (vanilla policy)", () =>
     Effect.gen(function* () {
       const calls: Array<{ method: "thread/start" | "thread/resume"; payload: unknown }> = [];
-      const started = makeThreadOpenResponse("fresh-thread");
       const client = {
         request: <M extends "thread/start" | "thread/resume">(
           method: M,
@@ -470,11 +469,13 @@ describe("openCodexThread", () => {
               }),
             );
           }
-          return Effect.succeed(started as CodexRpc.ClientRequestResponsesByMethod[M]);
+          return Effect.succeed(
+            makeThreadOpenResponse("fresh-thread") as CodexRpc.ClientRequestResponsesByMethod[M],
+          );
         },
       };
 
-      const opened = yield* openCodexThread({
+      const error = yield* openCodexThread({
         client,
         threadId: ThreadId.make("thread-1"),
         runtimeMode: "full-access",
@@ -482,12 +483,14 @@ describe("openCodexThread", () => {
         requestedModel: "gpt-5.3-codex",
         serviceTier: undefined,
         resumeThreadId: "stale-thread",
-      });
+      }).pipe(Effect.flip);
 
-      NodeAssert.equal(opened.thread.id, "fresh-thread");
+      // The missing-thread error propagates; no silent fresh thread replaces it.
+      NodeAssert.ok(isCodexAppServerRequestError(error));
+      NodeAssert.equal(error.errorMessage, "thread not found");
       NodeAssert.deepStrictEqual(
         calls.map((call) => call.method),
-        ["thread/resume", "thread/start"],
+        ["thread/resume"],
       );
     }),
   );

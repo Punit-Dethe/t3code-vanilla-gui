@@ -496,6 +496,16 @@ export const openCodexThread = (input: {
     return input.client.request("thread/start", startParams);
   }
 
+  // Vanilla fork: fail closed. A missing provider thread must surface an
+  // error instead of silently starting an empty Codex thread while the UI
+  // keeps showing old history that the model cannot see.
+  if (VANILLA_CODEX.enabled && !VANILLA_CODEX.allowFreshThreadFallbackAfterResumeFailure) {
+    return input.client.request("thread/resume", {
+      threadId: resumeThreadId,
+      ...startParams,
+    });
+  }
+
   return input.client
     .request("thread/resume", {
       threadId: resumeThreadId,
