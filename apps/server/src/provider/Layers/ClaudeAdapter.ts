@@ -70,6 +70,7 @@ import * as Stream from "effect/Stream";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
+import { VANILLA_CLAUDE } from "../VanillaProviderPolicy.ts";
 import { resolveClaudeSdkExecutablePath } from "../Drivers/ClaudeExecutable.ts";
 import { makeClaudeEnvironment } from "../Drivers/ClaudeHome.ts";
 import {
@@ -3520,7 +3521,12 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         ...(fastMode ? { fastMode: true } : {}),
         ...(ultracode ? { ultracode: true } : {}),
       };
-      const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+      // Vanilla fork: never auto-inject the T3 preview MCP server into Claude.
+      // User-configured native Claude MCP servers are untouched.
+      const mcpSession =
+        VANILLA_CLAUDE.enabled && !VANILLA_CLAUDE.injectT3PreviewMcp
+          ? undefined
+          : McpProviderSession.readMcpProviderSession(input.threadId);
       const queryOptions: ClaudeQueryOptions = {
         ...(input.cwd ? { cwd: input.cwd } : {}),
         ...(apiModelId ? { model: apiModelId } : {}),
