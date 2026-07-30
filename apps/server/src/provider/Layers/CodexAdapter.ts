@@ -40,7 +40,7 @@ import * as EffectCodexSchema from "effect-codex-app-server/schema";
 import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import { getCodexServiceTierOptionValue } from "../../codexModelOptions.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
-import { VANILLA_CODEX } from "../VanillaCodexPolicy.ts";
+import { VANILLA_CODEX } from "../VanillaProviderPolicy.ts";
 
 import {
   ProviderAdapterRequestError,
