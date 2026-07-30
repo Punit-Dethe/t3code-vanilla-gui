@@ -29,6 +29,7 @@ import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
+import { VANILLA_OPENCODE } from "../VanillaProviderPolicy.ts";
 import { type EventNdjsonLogger, makeEventNdjsonLogger } from "./EventNdjsonLogger.ts";
 import {
   ProviderAdapterProcessError,
@@ -1214,7 +1215,13 @@ export function makeOpenCodeAdapter(
                 directory,
                 ...(server.external && serverPassword ? { serverPassword } : {}),
               });
-              const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+              // Vanilla fork: never auto-inject the T3 preview MCP server into
+              // OpenCode. User-configured native OpenCode MCP servers are
+              // untouched.
+              const mcpSession =
+                VANILLA_OPENCODE.enabled && !VANILLA_OPENCODE.injectT3PreviewMcp
+                  ? undefined
+                  : McpProviderSession.readMcpProviderSession(input.threadId);
               if (mcpSession && !server.external) {
                 yield* runOpenCodeSdk("mcp.add", () =>
                   client.mcp.add({
